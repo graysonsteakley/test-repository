@@ -1,0 +1,301 @@
+<script
+  async
+  defer
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA6WAKqOd5e9N4GlQnQvfIcINhD1q5WPfo&libraries=places"
+></script>
+
+<script defer>
+  window.addEventListener("load", function () {
+    var inp = 1;
+    function initAutocomplete() {
+      const pickupInput = document.getElementById("Pickup-Location-3");
+      const dropOffInput = document.getElementById("Dropof-Location-3");
+      const autocomplete1 = new google.maps.places.Autocomplete(pickupInput);
+      const autocomplete2 = new google.maps.places.Autocomplete(dropOffInput);
+
+      const pickupInput2 = document.getElementById("Pickup-Location-2");
+      const dropOffInput2 = document.getElementById("Dropof-Location-2");
+      const autocomplete3 = new google.maps.places.Autocomplete(pickupInput2);
+      const autocomplete4 = new google.maps.places.Autocomplete(dropOffInput2);
+
+      const btn1 = document.getElementById("book-btn-1");
+      const btn2 = document.getElementById("book-btn-2");
+
+      const autocompleteArr = [
+        autocomplete1,
+        autocomplete2,
+        autocomplete3,
+        autocomplete4,
+      ];
+      const urlParams = new URLSearchParams(window.location.search);
+
+      btn1.addEventListener("click", function () {
+        if (
+          pickupInput.value &&
+          dropOffInput.value &&
+          localStorage.getItem("city1") &&
+          localStorage.getItem("city2")
+        ) {
+          window.location.href = `https://book.rideandy.com/?${urlParams}`;
+        } else {
+          alert("Please enter valid addresses!");
+        }
+      });
+
+      btn2.addEventListener("click", function () {
+        if (
+          pickupInput2.value &&
+          dropOffInput2.value &&
+          localStorage.getItem("city1") &&
+          localStorage.getItem("city2")
+        ) {
+          window.location.href = `https://book.rideandy.com/?${urlParams}`;
+        } else {
+          alert("Please enter valid addresses!");
+        }
+      });
+
+      var hash = window.location.hash.substr(1);
+
+      var result = hash.split("&").reduce(function (res, item) {
+        var parts = item.split("=");
+        res[parts[0]] = parts[1];
+        return res;
+      }, {});
+
+      if (typeof result !== "undefined" && result !== null) {
+        (async function () {
+          if (result.pickup) {
+            let pick = decodeURIComponent(result.pickup.replace(/\+/g, "%20"));
+            pickupInput.value = pick;
+            // localStorage.setItem('city1', pick);
+            await urlParams.append("pickup", pick);
+            getInitialPickup(pick, urlParams);
+          }
+          if (result.dropoff) {
+            let drop = decodeURIComponent(result.dropoff.replace(/\+/g, "%20"));
+            dropOffInput.value = drop;
+            // localStorage.setItem('city2', drop);
+            urlParams.append("dropoff", drop);
+
+            await getInitialDrop(drop, urlParams);
+          }
+          if (urlParams.get("pickup") && urlParams.get("dropoff")) {
+            distanceData = fetchText();
+          }
+        })();
+      }
+
+      google.maps.event.addDomListener(
+        pickupInput,
+        "keydown",
+        function (event) {
+          if (event.keyCode === 13) {
+            event.preventDefault();
+          }
+        }
+      );
+
+      google.maps.event.addDomListener(
+        pickupInput2,
+        "keydown",
+        function (event) {
+          if (event.keyCode === 13) {
+            event.preventDefault();
+          }
+        }
+      );
+
+      google.maps.event.addDomListener(
+        dropOffInput,
+        "keydown",
+        function (event) {
+          if (event.keyCode === 13) {
+            event.preventDefault();
+          }
+        }
+      );
+
+      google.maps.event.addDomListener(
+        dropOffInput2,
+        "keydown",
+        function (event) {
+          if (event.keyCode === 13) {
+            event.preventDefault();
+          }
+        }
+      );
+
+      function autoCompleteChange(autocomplete, i) {
+        google.maps.event.addListener(
+          autocomplete,
+          "place_changed",
+          function () {
+            //Update the URL
+            const place = autocomplete.getPlace();
+            if (!place.geometry) {
+              // User entered the name of a Place that was not suggested and
+              // pressed the Enter key, or the Place Details request failed.
+              // Do anything you like with what was entered in the ac field.
+              alert("Please select a valid address.");
+            }
+            var components = place.address_components,
+              city = "n/a";
+            if (components) {
+              for (var c = 0; c < components.length; ++c) {
+                console.log(components[c].types.join("|"));
+                if (
+                  components[c].types.indexOf("locality") > -1 &&
+                  components[c].types.indexOf("political") > -1
+                ) {
+                  city = components[c].long_name;
+                  break;
+                }
+              }
+            }
+
+            if (i > 1) {
+              inp = 2;
+            } else {
+              inp = 1;
+            }
+
+            if (inp === 1) {
+              dropOffInput2.value = "";
+              pickupInput2.value = "";
+            } else {
+              dropOffInput.value = "";
+              pickupInput.value = "";
+            }
+
+            i % 2 === 0
+              ? localStorage.setItem("city1", city)
+              : localStorage.setItem("city2", city);
+            const lat = place.geometry.location.lat();
+            const lng = place.geometry.location.lng();
+            const coords = {
+              lat,
+              lng,
+            };
+            i % 2 === 0
+              ? localStorage.setItem("pickup", JSON.stringify(coords))
+              : localStorage.setItem("dropoff", JSON.stringify(coords));
+            i % 2 === 0
+              ? urlParams.delete("pickup")
+              : urlParams.delete("dropoff");
+            i % 2 === 0
+              ? urlParams.append("pickup", place.formatted_address)
+              : urlParams.append("dropoff", place.formatted_address);
+            window.location.hash = urlParams;
+            if (urlParams.get("pickup") && urlParams.get("dropoff")) {
+              distanceData = fetchText();
+            }
+            return;
+          }
+        );
+      }
+
+      autocompleteArr.forEach((autocomplete, i) => {
+        autoCompleteChange(autocomplete, i);
+      });
+    }
+    initAutocomplete();
+  });
+
+  async function fetchText() {
+    let retr1 = localStorage.getItem("pickup");
+    let retr2 = localStorage.getItem("dropoff");
+    lng1 = JSON.parse(retr1).lng;
+    lat1 = JSON.parse(retr1).lat;
+    lng2 = JSON.parse(retr2).lng;
+    lat2 = JSON.parse(retr2).lat;
+
+    const distanceData = await fetch(
+      `https://api.mapbox.com/directions/v5/mapbox/driving/${lng1},${lat1};${lng2},${lat2}?access_token=pk.eyJ1IjoicmlkZWFuZHkiLCJhIjoiY2wzYnpxZnN5MGtqYTNjcnE4Z3czc2IxNyJ9.oiQ8mCZ4zShmwt6eHuc8vw`
+    );
+    let distanceJson = await distanceData.json();
+    console.log(distanceJson);
+
+    if (distanceJson.routes.length > 0) {
+      const priceMatrix = {
+        tesla: calculatePrice(distanceJson.routes[0].distance, "tesla"),
+        van: calculatePrice(distanceJson.routes[0].distance, "van"),
+      };
+      localStorage.setItem("priceMatrix", JSON.stringify(priceMatrix));
+      updateDom();
+    }
+    return distanceJson;
+  }
+
+  function calculatePrice(distance, type) {
+    if (type === "tesla")
+      return distance / 1000 > 60
+        ? (50 + (distance / 1000 - 60) * 1.3).toFixed(2)
+        : 50;
+    if (type === "van")
+      return distance / 1000 > 60
+        ? (100 + (distance / 1000 - 60) * 1.3).toFixed(2)
+        : 100;
+  }
+
+  function updateDom() {
+    let storedPrices = localStorage.getItem("priceMatrix");
+    let storedCity1 = localStorage.getItem("city1");
+    let storedCity2 = localStorage.getItem("city2");
+    let priceMatrix = JSON.parse(storedPrices);
+    let teslaHTML = document.getElementById("tesla-price");
+    let vanHTML = document.getElementById("van-price");
+    let pricesContainer = document.getElementById("prices-container");
+    let mainHeader = document.getElementById("main-header");
+    let city1 = document.getElementById("city-1");
+    let city2 = document.getElementById("city-2");
+
+    if (storedPrices) {
+      teslaHTML.innerText = `${priceMatrix.tesla}€`;
+      vanHTML.innerText = `${priceMatrix.van}€`;
+      city1.innerText = `${storedCity1}`;
+      city2.innerText = `${storedCity2}`;
+      mainHeader.innerText = `The best way to go from ${storedCity1} to ${storedCity2}`;
+
+      pricesContainer.style.display = "block";
+    } else {
+      pricesContainer.style.display = "none";
+    }
+  }
+
+  const getInitialPickup = async (pickup, urlParams) => {
+    fetch(
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${pickup}.json?&access_token=pk.eyJ1IjoicmlkZWFuZHkiLCJhIjoiY2wzYnpxZnN5MGtqYTNjcnE4Z3czc2IxNyJ9.oiQ8mCZ4zShmwt6eHuc8vw`
+    )
+      .then((res) => {
+        let response = res.json();
+        console.log(response);
+        if (response.data.features.length > 0) {
+          localStorage.setItem("city1", response.data.features[0].place_name);
+          urlParams.delete("pickup");
+          urlParams.append("pickup", place.formatted_address);
+        }
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+      });
+  };
+
+  const getInitialDrop = async (drop, urlParams) => {
+    fetch(
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${drop}.json?&access_token=pk.eyJ1IjoicmlkZWFuZHkiLCJhIjoiY2wzYnpxZnN5MGtqYTNjcnE4Z3czc2IxNyJ9.oiQ8mCZ4zShmwt6eHuc8vw`
+    )
+      .then((res) => {
+        let response = res.json();
+        console.log(response);
+        if (response.data.features.length > 0) {
+          localStorage.setItem("city2", response.data.features[0].place_name);
+          urlParams.delete("dropoff");
+          urlParams.append("dropoff", place.formatted_address);
+        }
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+      });
+  };
+</script>
